@@ -42,3 +42,11 @@ export class ConnectionController {
     return new Response("Submit-commands response");
   }
 }
+
+export namespace ConnectionController {
+  export const enum EConnectionState {
+    CONNECTED,
+    CONNECTING,
+    DISCONNECTED,
+  }
+}
