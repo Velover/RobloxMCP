@@ -1,3 +1,3 @@
 export namespace Config {
-  export const ENDPOINT = "http://localhost:8569";
+  export const PORT = 8695;
 }
