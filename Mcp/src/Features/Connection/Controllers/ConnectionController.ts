@@ -1,15 +1,16 @@
 import { Controller, OnStart } from "app-leaf";
 import { Config } from "../../../Core/Config";
+import { ConnectionResources } from "../Resources/ConnectionResources";
 
 interface ICommand {
-  id: ConnectionController.StringId;
+  id: ConnectionResources.StringId;
   name: string;
   args: any;
   timestamp: number;
 }
 
 interface ICommandResponse {
-  id: ConnectionController.StringId;
+  id: ConnectionResources.StringId;
   result: any;
   error?: string;
   timestamp: number;
@@ -17,26 +18,17 @@ interface ICommandResponse {
 
 @Controller()
 export class ConnectionController {
-  private static readonly CLEANUP_INTERVAL_MS = 10000;
-  private static readonly MAX_REQUEST_TIME_MS = 30000;
-  private static readonly MAX_RESPONSE_LIFETIME_MS = 5 * 60 * 1000;
-  private static readonly KEEP_ALIVE_LIFETIME_MS = 5000;
-
-  private static readonly KEEP_ALIVE_ENDPOINT = "/keep-alive";
-  private static readonly GET_COMMANDS_ENDPOINT = "/get-commands";
-  private static readonly SUBMIT_COMMANDS_ENDPOINT = "/submit-commands";
-
   private _lastKeepAliveTimestamp = 0;
-  private _connectionState: ConnectionController.EConnectionState =
-    ConnectionController.EConnectionState.DISCONNECTED;
+  private _connectionState: ConnectionResources.EConnectionState =
+    ConnectionResources.EConnectionState.DISCONNECTED;
 
   private _activeCommandsMap = new Map<
-    ConnectionController.StringId,
+    ConnectionResources.StringId,
     ICommand
   >();
 
   private _pendingResultsMap = new Map<
-    ConnectionController.StringId,
+    ConnectionResources.StringId,
     {
       resolve: (value: any) => void;
       reject: (reason?: any) => void;
@@ -46,7 +38,7 @@ export class ConnectionController {
 
   // Map of command ID to response (completed commands)
   private _commandResponses = new Map<
-    ConnectionController.StringId,
+    ConnectionResources.StringId,
     ICommandResponse
   >();
 
@@ -55,13 +47,13 @@ export class ConnectionController {
     Bun.serve({
       port: Config.PORT,
       routes: {
-        [ConnectionController.KEEP_ALIVE_ENDPOINT]: {
+        [ConnectionResources.KEEP_ALIVE_ENDPOINT]: {
           POST: this.HandleKeepAlive.bind(this),
         },
-        [ConnectionController.GET_COMMANDS_ENDPOINT]: {
+        [ConnectionResources.GET_COMMANDS_ENDPOINT]: {
           POST: this.HandleGetCommands.bind(this),
         },
-        [ConnectionController.SUBMIT_COMMANDS_ENDPOINT]: {
+        [ConnectionResources.SUBMIT_COMMANDS_ENDPOINT]: {
           POST: this.HandleSubmitCommands.bind(this),
         },
       },
@@ -70,11 +62,11 @@ export class ConnectionController {
     // Start a periodic cleanup task
     setInterval(
       this.CleanupStaleTasks.bind(this),
-      ConnectionController.CLEANUP_INTERVAL_MS
+      ConnectionResources.CLEANUP_INTERVAL_MS
     );
   }
 
-  private GenerateId(): ConnectionController.StringId {
+  private GenerateId(): ConnectionResources.StringId {
     return crypto.randomUUID();
   }
 
@@ -84,7 +76,7 @@ export class ConnectionController {
    * @param args Command arguments
    * @returns Command ID
    */
-  public RunCommand(name: string, args: any): ConnectionController.StringId {
+  public RunCommand(name: string, args: any): ConnectionResources.StringId {
     const id = this.GenerateId();
     const command: ICommand = {
       id,
@@ -103,7 +95,7 @@ export class ConnectionController {
    * @param id Command ID
    * @returns Promise resolving to the command response
    */
-  public async GetResponce(id: ConnectionController.StringId): Promise<any> {
+  public async GetResponce(id: ConnectionResources.StringId): Promise<any> {
     if (this._commandResponses.has(id)) {
       const response = this._commandResponses.get(id);
       this._commandResponses.delete(id);
@@ -123,7 +115,7 @@ export class ConnectionController {
           this._pendingResultsMap.delete(id);
           this._activeCommandsMap.delete(id);
         }
-      }, ConnectionController.MAX_REQUEST_TIME_MS);
+      }, ConnectionResources.MAX_REQUEST_TIME_MS);
 
       this._pendingResultsMap.set(id, { resolve, reject, timeout });
     });
@@ -134,7 +126,7 @@ export class ConnectionController {
    * @param id Command ID
    * @returns true if command was found and canceled, false otherwise
    */
-  public CancelCommand(id: ConnectionController.StringId): boolean {
+  public CancelCommand(id: ConnectionResources.StringId): boolean {
     // If command is active, remove it
     if (this._activeCommandsMap.has(id)) {
       this._activeCommandsMap.delete(id);
@@ -162,7 +154,7 @@ export class ConnectionController {
 
   private HandleKeepAlive() {
     this._lastKeepAliveTimestamp = Date.now();
-    this._connectionState = ConnectionController.EConnectionState.CONNECTED;
+    this._connectionState = ConnectionResources.EConnectionState.CONNECTED;
 
     return new Response(
       JSON.stringify({
@@ -179,10 +171,9 @@ export class ConnectionController {
     // Check if connection is still alive
     if (
       Date.now() - this._lastKeepAliveTimestamp >
-      ConnectionController.KEEP_ALIVE_LIFETIME_MS
+      ConnectionResources.KEEP_ALIVE_LIFETIME_MS
     ) {
-      this._connectionState =
-        ConnectionController.EConnectionState.DISCONNECTED;
+      this._connectionState = ConnectionResources.EConnectionState.DISCONNECTED;
       return new Response(
         JSON.stringify({
           error: "Connection expired. Send a keep-alive request first.",
@@ -206,10 +197,9 @@ export class ConnectionController {
     // Check if connection is still alive
     if (
       Date.now() - this._lastKeepAliveTimestamp >
-      ConnectionController.KEEP_ALIVE_LIFETIME_MS
+      ConnectionResources.KEEP_ALIVE_LIFETIME_MS
     ) {
-      this._connectionState =
-        ConnectionController.EConnectionState.DISCONNECTED;
+      this._connectionState = ConnectionResources.EConnectionState.DISCONNECTED;
       return new Response(
         JSON.stringify({
           error: "Connection expired. Send a keep-alive request first.",
@@ -288,15 +278,14 @@ export class ConnectionController {
     // Clean up old responses (older than 5 minutes)
     for (const [id, response] of this._commandResponses.entries()) {
       const isExpired =
-        now - response.timestamp >
-        ConnectionController.MAX_RESPONSE_LIFETIME_MS;
+        now - response.timestamp > ConnectionResources.MAX_RESPONSE_LIFETIME_MS;
       if (!isExpired) continue;
       this._commandResponses.delete(id);
     }
 
     for (const [id, command] of this._activeCommandsMap.entries()) {
       const isStale =
-        now - command.timestamp > ConnectionController.MAX_REQUEST_TIME_MS;
+        now - command.timestamp > ConnectionResources.MAX_REQUEST_TIME_MS;
       if (!isStale) continue;
       this._activeCommandsMap.delete(id);
 
@@ -314,17 +303,8 @@ export class ConnectionController {
     // Check connection state - FIX: Logic was inverted
     const isActive =
       now - this._lastKeepAliveTimestamp <
-      ConnectionController.KEEP_ALIVE_LIFETIME_MS;
+      ConnectionResources.KEEP_ALIVE_LIFETIME_MS;
     if (isActive) return;
-    this._connectionState = ConnectionController.EConnectionState.DISCONNECTED;
-  }
-}
-
-export namespace ConnectionController {
-  export type StringId = string;
-  export const enum EConnectionState {
-    CONNECTED,
-    CONNECTING,
-    DISCONNECTED,
+    this._connectionState = ConnectionResources.EConnectionState.DISCONNECTED;
   }
 }

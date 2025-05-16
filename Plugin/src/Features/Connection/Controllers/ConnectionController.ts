@@ -3,6 +3,7 @@ import { Controller, OnUnload } from "FlameworkIntegration";
 import { HttpService, RunService } from "@rbxts/services";
 import { atom } from "@rbxts/charm";
 import { ConnectionResources } from "../Resources/ConnectionResources";
+import { useAtom } from "@rbxts/react-charm";
 
 interface ICommand {
 	id: string;
@@ -20,8 +21,8 @@ interface ICommandResponse {
 @Controller({})
 export class ConnectionController implements OnInit, OnStart, OnUnload {
 	// Connection state atom for reactive UI updates
-	private readonly _connectionStateAtom = atom<ConnectionController.EConnectionState>(
-		ConnectionController.EConnectionState.DISCONNECTED,
+	private readonly _connectionStateAtom = atom<ConnectionResources.EConnectionState>(
+		ConnectionResources.EConnectionState.DISCONNECTED,
 	);
 
 	// Command handlers map
@@ -55,13 +56,13 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 	}
 
 	// Get current connection state
-	public GetConnectionState(): ConnectionController.EConnectionState {
+	public GetConnectionState(): ConnectionResources.EConnectionState {
 		return this._connectionStateAtom();
 	}
 
 	// Get connection state atom (for UI components)
-	public GetConnectionStateAtom(): typeof this._connectionStateAtom {
-		return this._connectionStateAtom;
+	public useConnectionState(): ConnectionResources.EConnectionState {
+		return useAtom(this._connectionStateAtom);
 	}
 
 	// Start connection loop
@@ -109,16 +110,16 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 			});
 
 			if (success) {
-				this._connectionStateAtom(ConnectionController.EConnectionState.CONNECTED);
+				this._connectionStateAtom(ConnectionResources.EConnectionState.CONNECTED);
 			} else {
-				this._connectionStateAtom(ConnectionController.EConnectionState.DISCONNECTED);
+				this._connectionStateAtom(ConnectionResources.EConnectionState.DISCONNECTED);
 			}
 		});
 	}
 
 	// Fetch commands from server
 	private FetchCommands(): void {
-		if (this.GetConnectionState() !== ConnectionController.EConnectionState.CONNECTED) {
+		if (this.GetConnectionState() !== ConnectionResources.EConnectionState.CONNECTED) {
 			return;
 		}
 
@@ -205,13 +206,5 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 				print("Failed to submit responses:", result);
 			}
 		});
-	}
-}
-
-export namespace ConnectionController {
-	export const enum EConnectionState {
-		CONNECTED,
-		CONNECTING,
-		DISCONNECTED,
 	}
 }

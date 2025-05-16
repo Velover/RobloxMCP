@@ -3,19 +3,20 @@ import { useAtom } from "@rbxts/react-charm";
 import React from "@rbxts/react";
 import { ConnectionController } from "../Controllers/ConnectionController";
 import { GuiResources } from "Features/PluginUI/Resources/GuiResources";
+import { ConnectionResources } from "../Resources/ConnectionResources";
 
 export function ConnectionStatusUI() {
 	const connectionController = useFlameworkDependency<ConnectionController>();
-	const connectionState = useAtom(connectionController.GetConnectionStateAtom());
+	const connectionState = useAtom(connectionController.useConnectionState());
 
 	// Determine color based on connection state
 	let statusColor = new Color3(1, 0, 0); // Red for disconnected
 	let statusText = "Disconnected";
 
-	if (connectionState === ConnectionController.EConnectionState.CONNECTED) {
+	if (connectionState === ConnectionResources.EConnectionState.CONNECTED) {
 		statusColor = new Color3(0, 1, 0); // Green for connected
 		statusText = "Connected";
-	} else if (connectionState === ConnectionController.EConnectionState.CONNECTING) {
+	} else if (connectionState === ConnectionResources.EConnectionState.CONNECTING) {
 		statusColor = new Color3(1, 1, 0); // Yellow for connecting
 		statusText = "Connecting...";
 	}

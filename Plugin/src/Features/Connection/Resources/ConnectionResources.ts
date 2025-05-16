@@ -10,4 +10,10 @@ export namespace ConnectionResources {
 	// Intervals in seconds
 	export const KEEP_ALIVE_INTERVAL = 4; // Send keep-alive every 4 seconds
 	export const FETCH_COMMANDS_INTERVAL = 1; // Fetch commands every 1 second
+
+	export const enum EConnectionState {
+		CONNECTED,
+		CONNECTING,
+		DISCONNECTED,
+	}
 }
