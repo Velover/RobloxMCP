@@ -192,8 +192,8 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 					.then((result) => {
 						response.result = result;
 					})
-					.catch((error) => {
-						response.error = tostring(error);
+					.catch((e) => {
+						response.error = tostring(e);
 					})
 					.finally(() => {
 						responses.push(response);
