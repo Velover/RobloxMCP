@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+**/out/
+**/dist/
+**/*.tgz
+
+# TypeScript
+**/*.tsbuildinfo
+**/flamework.build
+
+# Flamework
+**/include/
+
+# IDE files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/project.code-workspace
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS specific
+.DS_Store
+Thumbs.db
