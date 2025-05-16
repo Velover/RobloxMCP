@@ -7,7 +7,7 @@
     "@types/bun": "latest"
   },
   "scripts": {
-    "build": "bun build src/index.ts --compile --outfile file-io-server"
+    "build": "bun build src/index.ts --compile --outfile rbx-mcp"
   },
   "peerDependencies": {
     "typescript": "^5"
