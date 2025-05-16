@@ -67,7 +67,8 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 	// Register a command handler
 	public RegisterCommandHandler(
 		commandName: string,
-		handler: (args: unknown) => Promise<unknown>,
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		handler: (args: any) => Promise<any>,
 	): void {
 		this._commandHandlers.set(commandName, handler);
 	}
