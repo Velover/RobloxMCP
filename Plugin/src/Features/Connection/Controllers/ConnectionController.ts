@@ -1,7 +1,7 @@
 import { OnInit, OnStart } from "@flamework/core";
 import { Controller, OnUnload } from "FlameworkIntegration";
 import { HttpService, RunService } from "@rbxts/services";
-import { atom } from "@rbxts/charm";
+import { atom, peek } from "@rbxts/charm";
 import { ConnectionResources } from "../Resources/ConnectionResources";
 import { useAtom } from "@rbxts/react-charm";
 
@@ -60,8 +60,8 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 	}
 
 	// Get current connection state
-	public GetConnectionState(): ConnectionResources.EConnectionState {
-		return this._connectionStateAtom();
+	public PeekConnectionState(): ConnectionResources.EConnectionState {
+		return peek(this._connectionStateAtom);
 	}
 
 	// Get connection state atom (for UI components)
@@ -71,7 +71,7 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 
 	// Public method to manually start connection
 	public Connect(): void {
-		if (this.GetConnectionState() !== ConnectionResources.EConnectionState.DISCONNECTED) {
+		if (this.PeekConnectionState() !== ConnectionResources.EConnectionState.DISCONNECTED) {
 			return; // Already connecting or connected
 		}
 
@@ -145,7 +145,7 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 
 	// Fetch commands from server
 	private FetchCommands(): void {
-		if (this.GetConnectionState() !== ConnectionResources.EConnectionState.CONNECTED) {
+		if (this.PeekConnectionState() !== ConnectionResources.EConnectionState.CONNECTED) {
 			return;
 		}
 
