@@ -1,9 +1,10 @@
 import { OnInit, OnStart } from "@flamework/core";
 import { atom, peek } from "@rbxts/charm";
 import { useAtom } from "@rbxts/react-charm";
-import { HttpService, RunService } from "@rbxts/services";
+import { HttpService } from "@rbxts/services";
 import { Controller, OnUnload } from "FlameworkIntegration";
 import { ConnectionResources } from "../Resources/ConnectionResources";
+import { CallbackTimer } from "../Utils/CallbackTimer";
 
 interface ICommand {
 	id: string;
@@ -36,9 +37,19 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 	// Command handlers map
 	private readonly _commandHandlers = new Map<string, (args: unknown) => Promise<unknown>>();
 
-	// Keep-alive and fetch timers
-	private _keepAliveTimer?: RBXScriptConnection;
-	private _fetchCommandsTimer?: RBXScriptConnection;
+	private _keepAliveTimer = CallbackTimer.Builder()
+		.WithWaitTime(ConnectionResources.KEEP_ALIVE_INTERVAL)
+		.WithOneShot(false)
+		.WithYieldAfterCall(true)
+		.WithTimeOutCallback(() => this.SendKeepAlive())
+		.Build();
+
+	private _fetchCommandsTimer = CallbackTimer.Builder()
+		.WithWaitTime(ConnectionResources.FETCH_COMMANDS_INTERVAL)
+		.WithOneShot(false)
+		.WithTimeOutCallback(() => this.FetchCommands())
+		.WithYieldAfterCall(true)
+		.Build();
 
 	onInit(): void {
 		print("ConnectionController initialized");
@@ -86,9 +97,7 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 		this.StartConnectionLoop();
 
 		// Attempt initial keep-alive to establish connection
-		task.spawn(() => {
-			this.SendKeepAlive();
-		});
+		task.spawn(() => this.SendKeepAlive());
 	}
 
 	// Public method to manually disconnect
@@ -99,35 +108,14 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 
 	// Start connection loop
 	private StartConnectionLoop(): void {
-		// Stop existing timers if they exist
-		this.StopConnectionLoop();
-
-		// Start keep-alive timer
-		this._keepAliveTimer = RunService.Heartbeat.Connect(() => {
-			if (os.clock() % ConnectionResources.KEEP_ALIVE_INTERVAL < 0.1) {
-				this.SendKeepAlive();
-			}
-		});
-
-		// Start fetch commands timer
-		this._fetchCommandsTimer = RunService.Heartbeat.Connect(() => {
-			if (os.clock() % ConnectionResources.FETCH_COMMANDS_INTERVAL < 0.1) {
-				this.FetchCommands();
-			}
-		});
+		this._keepAliveTimer.Start();
+		this._fetchCommandsTimer.Start();
 	}
 
 	// Stop connection loop
 	private StopConnectionLoop(): void {
-		if (this._keepAliveTimer) {
-			this._keepAliveTimer.Disconnect();
-			this._keepAliveTimer = undefined;
-		}
-
-		if (this._fetchCommandsTimer) {
-			this._fetchCommandsTimer.Disconnect();
-			this._fetchCommandsTimer = undefined;
-		}
+		this._keepAliveTimer.Stop();
+		this._fetchCommandsTimer.Stop();
 	}
 
 	// Send keep-alive request to server
@@ -143,10 +131,10 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 
 			if (success) {
 				this._connectionStateAtom(ConnectionResources.EConnectionState.CONNECTED);
-			} else {
-				// Auto-disconnect on failure
-				this.Disconnect();
+				return;
 			}
+			// Auto-disconnect on failure
+			this.Disconnect();
 		});
 	}
 
@@ -170,39 +158,36 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 				return;
 			}
 
-			const [parse_success, data] = pcall(
+			const [parseSuccess, data] = pcall(
 				() => HttpService.JSONDecode(result as string) as IIncommingCommands,
 			);
-			if (!parse_success || !("commands" in data)) {
-				return;
-			}
+			if (!parseSuccess) return;
 
-			const commands = data.commands as Array<ICommand>;
-			if (commands.size() > 0) {
-				this.ProcessCommands(commands);
-			}
+			const commands = data.commands;
+			this.ProcessCommands(commands);
 		});
 	}
 
 	// Process commands from server
 	private ProcessCommands(commands: Array<ICommand>): void {
 		const responses: Array<ICommandResponse> = [];
+		const command_promises = new Array<Promise<void>>();
 
 		for (const command of commands) {
-			task.spawn(() => {
-				const handler = this._commandHandlers.get(command.name);
+			const handler = this._commandHandlers.get(command.name);
 
-				const response: ICommandResponse = {
-					id: command.id,
-					result: undefined,
-				};
+			const response: ICommandResponse = {
+				id: command.id,
+				result: undefined,
+			};
 
-				if (!handler) {
-					response.error = `No handler registered for command '${command.name}'`;
-					responses.push(response);
-					return;
-				}
+			if (handler === undefined) {
+				response.error = `No handler registered for command '${command.name}'`;
+				responses.push(response);
+				return;
+			}
 
+			command_promises.push(
 				Promise.try(() => handler(command.args))
 					.then((result) => {
 						response.result = result;
@@ -212,9 +197,11 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 					})
 					.finally(() => {
 						responses.push(response);
-						this.SubmitResponses(responses);
-					});
-			});
+					}),
+			);
+
+			Promise.all(command_promises).expect();
+			this.SubmitResponses(responses);
 		}
 	}
 
@@ -235,9 +222,8 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 				);
 			});
 
-			if (!success) {
-				print("Failed to submit responses:", result);
-			}
+			if (success) return;
+			print("Failed to submit responses:", result);
 		});
 	}
 }
