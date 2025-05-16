@@ -1,9 +1,9 @@
 import { OnInit, OnStart } from "@flamework/core";
-import { Controller, OnUnload } from "FlameworkIntegration";
-import { HttpService, RunService } from "@rbxts/services";
 import { atom, peek } from "@rbxts/charm";
-import { ConnectionResources } from "../Resources/ConnectionResources";
 import { useAtom } from "@rbxts/react-charm";
+import { HttpService, RunService } from "@rbxts/services";
+import { Controller, OnUnload } from "FlameworkIntegration";
+import { ConnectionResources } from "../Resources/ConnectionResources";
 
 interface ICommand {
 	id: string;
@@ -22,6 +22,10 @@ interface IIncommingCommands {
 	commands: Array<ICommand>;
 }
 
+interface IOutgoingCommands {
+	responses: Array<ICommandResponse>;
+}
+
 @Controller({})
 export class ConnectionController implements OnInit, OnStart, OnUnload {
 	// Connection state atom for reactive UI updates
@@ -30,7 +34,7 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 	);
 
 	// Command handlers map
-	private readonly _commandHandlers = new Map<string, (args: any) => Promise<any>>();
+	private readonly _commandHandlers = new Map<string, (args: unknown) => Promise<unknown>>();
 
 	// Keep-alive and fetch timers
 	private _keepAliveTimer?: RBXScriptConnection;
@@ -50,7 +54,10 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 	}
 
 	// Register a command handler
-	public RegisterCommandHandler(commandName: string, handler: (args: any) => Promise<any>): void {
+	public RegisterCommandHandler(
+		commandName: string,
+		handler: (args: unknown) => Promise<unknown>,
+	): void {
 		this._commandHandlers.set(commandName, handler);
 	}
 
@@ -187,7 +194,7 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 
 				const response: ICommandResponse = {
 					id: command.id,
-					result: null,
+					result: undefined,
 				};
 
 				if (!handler) {
@@ -213,11 +220,9 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 
 	// Submit command responses back to server
 	private SubmitResponses(responses: Array<ICommandResponse>): void {
-		if (responses.isEmpty()) {
-			return;
-		}
+		if (responses.isEmpty()) return;
 
-		const data = {
+		const data: IOutgoingCommands = {
 			responses: responses,
 		};
 
