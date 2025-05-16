@@ -146,10 +146,8 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 
 		task.spawn(() => {
 			const [success, result] = pcall(() => {
-				return HttpService.PostAsync(
+				return HttpService.GetAsync(
 					ConnectionResources.BASE_URL + ConnectionResources.GET_COMMANDS_ENDPOINT,
-					"{}",
-					Enum.HttpContentType.ApplicationJson,
 				);
 			});
 
