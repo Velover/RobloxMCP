@@ -1,25 +1,35 @@
 import { useFlameworkDependency } from "@rbxts/flamework-react-utils";
-import { useAtom } from "@rbxts/react-charm";
 import React from "@rbxts/react";
-import { ConnectionController } from "../Controllers/ConnectionController";
 import { GuiResources } from "Features/PluginUI/Resources/GuiResources";
+import { ConnectionController } from "../Controllers/ConnectionController";
 import { ConnectionResources } from "../Resources/ConnectionResources";
 
 export function ConnectionStatusUI() {
 	const connectionController = useFlameworkDependency<ConnectionController>();
-	const connectionState = useAtom(connectionController.useConnectionState());
+	const connectionState = connectionController.useConnectionState();
 
-	// Determine color based on connection state
-	let statusColor = new Color3(1, 0, 0); // Red for disconnected
-	let statusText = "Disconnected";
+	// Determine UI elements based on connection state
+	let statusColor = ConnectionResources.UI_COLOR_DISCONNECTED;
+	let statusText = ConnectionResources.UI_DISCONNECTED_TEXT;
+	let showConnectButton = true;
 
 	if (connectionState === ConnectionResources.EConnectionState.CONNECTED) {
-		statusColor = new Color3(0, 1, 0); // Green for connected
-		statusText = "Connected";
+		statusColor = ConnectionResources.UI_COLOR_CONNECTED;
+		statusText = ConnectionResources.UI_CONNECTED_TEXT;
+		showConnectButton = false;
 	} else if (connectionState === ConnectionResources.EConnectionState.CONNECTING) {
-		statusColor = new Color3(1, 1, 0); // Yellow for connecting
-		statusText = "Connecting...";
+		statusColor = ConnectionResources.UI_COLOR_CONNECTING;
+		statusText = ConnectionResources.UI_CONNECTING_TEXT;
+		showConnectButton = false;
 	}
+
+	const handleConnect = () => {
+		connectionController.Connect();
+	};
+
+	const handleDisconnect = () => {
+		connectionController.Disconnect();
+	};
 
 	return (
 		<frame
@@ -60,6 +70,39 @@ export function ConnectionStatusUI() {
 					BackgroundTransparency={1}
 				/>
 			</frame>
+
+			{/* Connect/Disconnect Button */}
+			{showConnectButton ? (
+				<textbutton
+					Text={ConnectionResources.UI_CONNECT_BUTTON_TEXT}
+					TextColor3={new Color3(1, 1, 1)}
+					FontFace={GuiResources.FONT_BOLD}
+					TextSize={14}
+					Size={UDim2.fromOffset(80, 20)}
+					BackgroundColor3={ConnectionResources.UI_BUTTON_CONNECT_COLOR}
+					BorderSizePixel={0}
+					Event={{
+						MouseButton1Click: handleConnect,
+					}}
+				>
+					<uicorner CornerRadius={new UDim(0, 4)} />
+				</textbutton>
+			) : (
+				<textbutton
+					Text={ConnectionResources.UI_DISCONNECT_BUTTON_TEXT}
+					TextColor3={new Color3(1, 1, 1)}
+					FontFace={GuiResources.FONT_BOLD}
+					TextSize={14}
+					Size={UDim2.fromOffset(80, 20)}
+					BackgroundColor3={ConnectionResources.UI_BUTTON_DISCONNECT_COLOR}
+					BorderSizePixel={0}
+					Event={{
+						MouseButton1Click: handleDisconnect,
+					}}
+				>
+					<uicorner CornerRadius={new UDim(0, 4)} />
+				</textbutton>
+			)}
 
 			<frame Size={UDim2.fromOffset(10, 0)} BackgroundTransparency={1} />
 		</frame>

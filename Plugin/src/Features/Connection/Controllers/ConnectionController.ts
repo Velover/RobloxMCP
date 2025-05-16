@@ -18,6 +18,10 @@ interface ICommandResponse {
 	error?: string;
 }
 
+interface IIncommingCommands {
+	commands: Array<ICommand>;
+}
+
 @Controller({})
 export class ConnectionController implements OnInit, OnStart, OnUnload {
 	// Connection state atom for reactive UI updates
@@ -37,8 +41,8 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 	}
 
 	onStart(): void {
-		print("Starting connection to MCP server");
-		this.StartConnectionLoop();
+		print("ConnectionController ready - waiting for manual connection");
+		// Manual connection is now required - removed auto-connection
 	}
 
 	onUnload(): void {
@@ -63,6 +67,27 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 	// Get connection state atom (for UI components)
 	public useConnectionState(): ConnectionResources.EConnectionState {
 		return useAtom(this._connectionStateAtom);
+	}
+
+	// Public method to manually start connection
+	public Connect(): void {
+		if (this.GetConnectionState() !== ConnectionResources.EConnectionState.DISCONNECTED) {
+			return; // Already connecting or connected
+		}
+
+		this._connectionStateAtom(ConnectionResources.EConnectionState.CONNECTING);
+		this.StartConnectionLoop();
+
+		// Attempt initial keep-alive to establish connection
+		task.spawn(() => {
+			this.SendKeepAlive();
+		});
+	}
+
+	// Public method to manually disconnect
+	public Disconnect(): void {
+		this.StopConnectionLoop();
+		this._connectionStateAtom(ConnectionResources.EConnectionState.DISCONNECTED);
 	}
 
 	// Start connection loop
@@ -112,7 +137,8 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 			if (success) {
 				this._connectionStateAtom(ConnectionResources.EConnectionState.CONNECTED);
 			} else {
-				this._connectionStateAtom(ConnectionResources.EConnectionState.DISCONNECTED);
+				// Auto-disconnect on failure
+				this.Disconnect();
 			}
 		});
 	}
@@ -137,8 +163,10 @@ export class ConnectionController implements OnInit, OnStart, OnUnload {
 				return;
 			}
 
-			const [parseSuccess, data] = pcall(() => HttpService.JSONDecode(result as string));
-			if (!parseSuccess || !data.commands) {
+			const [parse_success, data] = pcall(
+				() => HttpService.JSONDecode(result as string) as IIncommingCommands,
+			);
+			if (!parse_success || !("commands" in data)) {
 				return;
 			}
 
